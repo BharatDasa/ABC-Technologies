@@ -378,8 +378,8 @@ pipeline {
                             ansible/playbooks/deploy.yml \
                             --private-key=$SSH_KEY \
                             -u bharat \
-                            -e image="${IMAGE}:${VERSION}"
-
+                            -e image="${IMAGE}:${VERSION}" \
+                            -e workspace="${WORKSPACE}"
                         '''
 
                     }

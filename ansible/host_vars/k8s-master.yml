@@ -2,10 +2,8 @@
 # ABC-Technologies
 # Host Variables
 #
-# Host : k8s-master
-#
-# Purpose:
-# Configuration specific to the Kubernetes Control Plane.
+# Host    : k8s-master
+# Purpose : Configuration specific to the Kubernetes Control Plane
 #
 ###############################################################################
 
@@ -40,25 +38,56 @@ api_server: "https://192.168.56.10:6443"
 ssh_user: bharat
 
 ###############################################################################
-# Workspace
-###############################################################################
-
-workspace: "/home/bharat/ABC-Technologies"
-
-###############################################################################
-# Kubernetes Manifest Directory
-###############################################################################
-
-manifest_directory: "{{ workspace }}/kubernetes"
-
-###############################################################################
-# Temporary Directory
+# Temporary Deployment Directory
+#
+# Jenkins copies Kubernetes manifests here during deployment.
+# This directory is recreated on every deployment.
 ###############################################################################
 
 tmp_directory: "/tmp/abc-technologies"
 
 ###############################################################################
-# kubectl Timeout
+# Kubernetes Manifest Directory
+###############################################################################
+
+manifest_directory: "{{ tmp_directory }}/kubernetes"
+
+###############################################################################
+# Temporary Manifest Backup
+###############################################################################
+
+backup_directory: "{{ tmp_directory }}/backup"
+
+###############################################################################
+# kubectl Rollout Timeout
 ###############################################################################
 
 kubectl_timeout: 180s
+
+###############################################################################
+# Cleanup After Deployment
+###############################################################################
+
+cleanup_tmp_directory: true
+
+###############################################################################
+# Kubernetes Context
+###############################################################################
+
+kube_context: ""
+
+###############################################################################
+# Deployment Validation
+###############################################################################
+
+verify_rollout: true
+
+verify_pods: true
+
+verify_service: true
+
+verify_ingress: true
+
+verify_hpa: true
+
+verify_servicemonitor: true
