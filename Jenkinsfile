@@ -38,8 +38,6 @@ pipeline {
 
         DOCKERHUB_IMAGE = "bharatdasa/abc-technologies"
 
-        APP_VERSION = ""
-
         // =====================================================
         // GitHub
         // =====================================================
@@ -69,27 +67,6 @@ pipeline {
     }
 
     stages {
-
-        /******************************************************
-         * Initialize Version
-         ******************************************************/
-
-        stage('Initialize Version') {
-
-            steps {
-
-                script {
-
-                    env.APP_VERSION = "1.0.${env.BUILD_NUMBER}"
-
-                    echo "BUILD_NUMBER       : ${env.BUILD_NUMBER}"
-                    echo "Application Version: ${env.APP_VERSION}"
-
-                }
-
-            }
-
-        }
 
         /******************************************************
          * Clone Repository
@@ -125,7 +102,7 @@ pipeline {
                     mvn clean deploy \
                         -U \
                         -DskipTests \
-                        -Drevision=${APP_VERSION} \
+                        -Drevision=1.0.${env.BUILD_NUMBER} \ 
                         -Dchangelist=""
 
                     echo "=============================================="
