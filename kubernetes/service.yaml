@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: abc-technologies
+  namespace: abc-technologies
+
+  labels:
+    app: abc-technologies
+    environment: production
+
+spec:
+
+  type: ClusterIP
+
+  selector:
+
+    app: abc-technologies
+
+  ports:
+
+    - name: http
+
+      protocol: TCP
+
+      port: 80
+
+      targetPort: 8080

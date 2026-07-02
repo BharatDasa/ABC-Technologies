@@ -1,0 +1,36 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+
+metadata:
+  name: abc-technologies
+  namespace: monitoring
+
+  labels:
+    release: monitoring
+    app: abc-technologies
+
+spec:
+
+  selector:
+
+    matchLabels:
+
+      app: abc-technologies
+
+  namespaceSelector:
+
+    matchNames:
+
+      - abc-technologies
+
+  endpoints:
+
+    - port: http
+
+      path: /
+
+      interval: 15s
+
+      scrapeTimeout: 10s
+
+      honorLabels: true

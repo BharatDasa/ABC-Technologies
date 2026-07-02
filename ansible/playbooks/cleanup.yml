@@ -1,0 +1,222 @@
+---
+###############################################################################
+# ABC-Technologies
+# Cleanup Playbook
+#
+# Purpose:
+# Clean temporary deployment files after successful deployment.
+#
+###############################################################################
+
+- name: Cleanup Deployment Environment
+
+  hosts: kubernetes_cluster
+
+  gather_facts: false
+
+  become: true
+
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+
+###############################################################################
+# Deployment Summary
+###############################################################################
+
+    - name: Display Cleanup Information
+
+      debug:
+        msg:
+          - "Application : {{ app_name }}"
+          - "Namespace   : {{ namespace }}"
+          - "Cleanup     : Starting"
+
+###############################################################################
+# Remove Temporary Directory
+###############################################################################
+
+    - name: Remove Temporary Directory
+
+      file:
+        path: "{{ tmp_directory }}"
+        state: absent
+
+###############################################################################
+# Recreate Temporary Directory
+###############################################################################
+
+    - name: Recreate Temporary Directory
+
+      file:
+        path: "{{ tmp_directory }}"
+        state: directory
+        mode: "0755"
+
+###############################################################################
+# Remove Ansible Retry Files
+###############################################################################
+
+    - name: Remove Retry Files
+
+      shell: |
+        find {{ workspace }} -name "*.retry" -type f -delete
+
+      args:
+        executable: /bin/bash
+
+      changed_when: false
+
+      ignore_errors: true
+
+###############################################################################
+# Remove Temporary Files
+###############################################################################
+
+    - name: Remove Temporary Files
+
+      shell: |
+        find {{ workspace }} -name "*.tmp" -type f -delete
+
+      args:
+        executable: /bin/bash
+
+      changed_when: false
+
+      ignore_errors: true
+
+###############################################################################
+# Remove Backup Files
+###############################################################################
+
+    - name: Remove Backup Files
+
+      shell: |
+        find {{ workspace }} -name "*.bak" -type f -delete
+
+      args:
+        executable: /bin/bash
+
+      changed_when: false
+
+      ignore_errors: true
+
+###############################################################################
+# Remove Python Cache
+###############################################################################
+
+    - name: Remove Python Cache
+
+      shell: |
+        find {{ workspace }} -name "__pycache__" -type d -exec rm -rf {} +
+
+      args:
+        executable: /bin/bash
+
+      changed_when: false
+
+      ignore_errors: true
+
+###############################################################################
+# Remove Old Logs (Older than 7 Days)
+###############################################################################
+
+    - name: Remove Old Log Files
+
+      shell: |
+        find {{ workspace }}/ansible/logs -type f -mtime +7 -delete
+
+      args:
+        executable: /bin/bash
+
+      changed_when: false
+
+      ignore_errors: true
+
+###############################################################################
+# Display Deployment
+###############################################################################
+
+    - name: Deployment Status
+
+      command: >
+        {{ kubectl_binary }}
+        get deployment
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: deployment
+
+      changed_when: false
+
+###############################################################################
+# Display Pods
+###############################################################################
+
+    - name: Running Pods
+
+      command: >
+        {{ kubectl_binary }}
+        get pods
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: pods
+
+      changed_when: false
+
+###############################################################################
+# Display Services
+###############################################################################
+
+    - name: Services
+
+      command: >
+        {{ kubectl_binary }}
+        get svc
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: services
+
+      changed_when: false
+
+###############################################################################
+# Display Ingress
+###############################################################################
+
+    - name: Ingress
+
+      command: >
+        {{ kubectl_binary }}
+        get ingress
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      when: ingress_enabled
+
+      register: ingress
+
+      changed_when: false
+
+###############################################################################
+# Cleanup Complete
+###############################################################################
+
+    - name: Cleanup Complete
+
+      debug:
+        msg:
+          - "Temporary Files Removed"
+          - "Deployment Verified"
+          - "Application URL : {{ application_url }}"
+          - "Cleanup Completed Successfully"

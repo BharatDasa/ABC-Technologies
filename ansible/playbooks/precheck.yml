@@ -1,0 +1,209 @@
+---
+###############################################################################
+# ABC-Technologies
+# Pre-Deployment Validation
+#
+# Purpose:
+# Validate the Kubernetes environment before deployment.
+#
+###############################################################################
+
+- name: Pre-Deployment Validation
+
+  hosts: kubernetes_cluster
+
+  gather_facts: false
+
+  become: true
+
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+
+###############################################################################
+# Display Information
+###############################################################################
+
+    - name: Display Deployment Information
+
+      debug:
+        msg:
+          - "Application : {{ app_name }}"
+          - "Namespace   : {{ namespace }}"
+          - "Image       : {{ image }}"
+          - "Environment : {{ environment }}"
+
+###############################################################################
+# Verify kubectl
+###############################################################################
+
+    - name: Verify kubectl
+
+      command: "{{ kubectl_binary }} version --client"
+
+      register: kubectl_check
+
+      changed_when: false
+
+###############################################################################
+# Verify Kubernetes Cluster
+###############################################################################
+
+    - name: Verify Cluster Connectivity
+
+      command: >
+        {{ kubectl_binary }} cluster-info
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: cluster
+
+      changed_when: false
+
+###############################################################################
+# Verify Nodes
+###############################################################################
+
+    - name: Verify Kubernetes Nodes
+
+      command: >
+        {{ kubectl_binary }} get nodes
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: nodes
+
+      changed_when: false
+
+###############################################################################
+# Verify Namespace
+###############################################################################
+
+    - name: Verify Namespace
+
+      command: >
+        {{ kubectl_binary }} get namespace {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: namespace
+
+      changed_when: false
+
+###############################################################################
+# Verify Registry
+###############################################################################
+
+    - name: Verify Docker Registry
+
+      uri:
+
+        url: "http://{{ registry }}/v2/"
+
+        method: GET
+
+        status_code: [200,401]
+
+      register: registry
+
+###############################################################################
+# Verify Manifest Directory
+###############################################################################
+
+    - name: Verify Manifest Directory
+
+      stat:
+
+        path: "{{ manifest_directory }}"
+
+      register: manifests
+
+    - name: Fail if Manifest Directory Missing
+
+      fail:
+
+        msg: "Kubernetes manifest directory not found."
+
+      when: not manifests.stat.exists
+
+###############################################################################
+# Verify Istio
+###############################################################################
+
+    - name: Verify Istio
+
+      command: >
+        {{ kubectl_binary }}
+        get pods
+        -n {{ istio_namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      when: istio_enabled
+
+      changed_when: false
+
+###############################################################################
+# Verify Monitoring Stack
+###############################################################################
+
+    - name: Verify Monitoring
+
+      command: >
+        {{ kubectl_binary }}
+        get pods
+        -n {{ monitoring_namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      when: monitoring_enabled
+
+      changed_when: false
+
+###############################################################################
+# Verify Storage Class
+###############################################################################
+
+    - name: Verify StorageClass
+
+      command: >
+        {{ kubectl_binary }}
+        get storageclass {{ storage_class }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      changed_when: false
+
+###############################################################################
+# Display Cluster
+###############################################################################
+
+    - name: Display Node Status
+
+      debug:
+
+        var: nodes.stdout_lines
+
+###############################################################################
+# Success
+###############################################################################
+
+    - name: Precheck Passed
+
+      debug:
+
+        msg:
+          - "Kubernetes Cluster Reachable"
+          - "Registry Reachable"
+          - "Namespace Exists"
+          - "Istio Available"
+          - "Monitoring Available"
+          - "StorageClass Available"
+          - "Environment Ready for Deployment"

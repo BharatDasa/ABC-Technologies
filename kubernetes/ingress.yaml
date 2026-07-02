@@ -1,0 +1,43 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: abc-technologies
+  namespace: abc-technologies
+
+  labels:
+    app: abc-technologies
+    environment: production
+
+spec:
+
+  ingressClassName: nginx
+
+  tls:
+
+    - hosts:
+        - abc.192.168.56.100.nip.io
+
+      secretName: wildcard-tls
+
+  rules:
+
+    - host: abc.192.168.56.100.nip.io
+
+      http:
+
+        paths:
+
+          - path: /
+
+            pathType: Prefix
+
+            backend:
+
+              service:
+
+                name: abc-technologies
+
+                port:
+
+                  number: 80

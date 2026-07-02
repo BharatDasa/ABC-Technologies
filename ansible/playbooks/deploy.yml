@@ -1,0 +1,323 @@
+---
+###############################################################################
+# ABC-Technologies
+# Deployment Playbook
+#
+# Purpose:
+# Deploy the application to Kubernetes.
+#
+###############################################################################
+
+- name: Deploy ABC-Technologies
+
+  hosts: kubernetes_cluster
+
+  gather_facts: false
+
+  become: true
+
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+
+###############################################################################
+# Deployment Summary
+###############################################################################
+
+    - name: Deployment Summary
+
+      debug:
+        msg:
+          - "Application : {{ app_name }}"
+          - "Image       : {{ image }}"
+          - "Namespace   : {{ namespace }}"
+          - "Environment : {{ environment }}"
+
+###############################################################################
+# Update Image Tag
+###############################################################################
+
+    - name: Update Deployment Image
+
+      replace:
+
+        path: "{{ manifest_directory }}/deployment.yaml"
+
+        regexp: 'IMAGE_PLACEHOLDER'
+
+        replace: "{{ image }}"
+
+###############################################################################
+# Apply Namespace
+###############################################################################
+
+    - name: Apply Namespace
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        apply
+
+        -f {{ manifest_directory }}/namespace.yaml
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+###############################################################################
+# Apply ConfigMap
+###############################################################################
+
+    - name: Apply ConfigMap
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        apply
+
+        -f {{ manifest_directory }}/configmap.yaml
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+###############################################################################
+# Apply Secret
+###############################################################################
+
+    - name: Apply Secret
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        apply
+
+        -f {{ manifest_directory }}/secret.yaml
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+###############################################################################
+# Apply ServiceAccount
+###############################################################################
+
+    - name: Apply ServiceAccount
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        apply
+
+        -f {{ manifest_directory }}/serviceaccount.yaml
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+###############################################################################
+# Apply Network Policy
+###############################################################################
+
+    - name: Apply Network Policy
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        apply
+
+        -f {{ manifest_directory }}/networkpolicy.yaml
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+###############################################################################
+# Deploy Application
+###############################################################################
+
+    - name: Deploy Application
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        apply
+
+        -f {{ manifest_directory }}/deployment.yaml
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+###############################################################################
+# Apply Service
+###############################################################################
+
+    - name: Apply Service
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        apply
+
+        -f {{ manifest_directory }}/service.yaml
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+###############################################################################
+# Apply Ingress
+###############################################################################
+
+    - name: Apply Ingress
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        apply
+
+        -f {{ manifest_directory }}/ingress.yaml
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      when: ingress_enabled
+
+###############################################################################
+# Apply HPA
+###############################################################################
+
+    - name: Apply Horizontal Pod Autoscaler
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        apply
+
+        -f {{ manifest_directory }}/hpa.yaml
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      when: hpa_enabled
+
+###############################################################################
+# Apply ServiceMonitor
+###############################################################################
+
+    - name: Apply ServiceMonitor
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        apply
+
+        -f {{ workspace }}/monitoring/servicemonitor.yaml
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      when: servicemonitor_enabled
+
+###############################################################################
+# Wait for Rollout
+###############################################################################
+
+    - name: Wait for Deployment
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        rollout status
+
+        deployment/{{ deployment_name }}
+
+        -n {{ namespace }}
+
+        --timeout={{ rollout_timeout }}
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+###############################################################################
+# Deployment Information
+###############################################################################
+
+    - name: Deployment Status
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        get deployment
+
+        -n {{ namespace }}
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: deployment_status
+
+      changed_when: false
+
+    - debug:
+
+        var: deployment_status.stdout_lines
+
+###############################################################################
+# Pod Information
+###############################################################################
+
+    - name: Running Pods
+
+      command: >
+
+        {{ kubectl_binary }}
+
+        get pods
+
+        -n {{ namespace }}
+
+        -o wide
+
+      environment:
+
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: pods
+
+      changed_when: false
+
+    - debug:
+
+        var: pods.stdout_lines
+
+###############################################################################
+# Deployment Completed
+###############################################################################
+
+    - name: Deployment Successful
+
+      debug:
+
+        msg:
+          - "Deployment Completed Successfully"
+          - "Application URL : {{ application_url }}"

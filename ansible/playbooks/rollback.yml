@@ -1,0 +1,166 @@
+---
+###############################################################################
+# ABC-Technologies
+# Rollback Playbook
+#
+# Purpose:
+# Roll back the application to the previous successful deployment.
+#
+###############################################################################
+
+- name: Rollback ABC-Technologies
+
+  hosts: kubernetes_cluster
+
+  gather_facts: false
+
+  become: true
+
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+
+###############################################################################
+# Deployment Summary
+###############################################################################
+
+    - name: Display Rollback Information
+
+      debug:
+        msg:
+          - "Application : {{ app_name }}"
+          - "Namespace   : {{ namespace }}"
+          - "Rollback    : Starting"
+
+###############################################################################
+# Display Rollout History
+###############################################################################
+
+    - name: Show Rollout History
+
+      command: >
+        {{ kubectl_binary }}
+        rollout history
+        deployment/{{ deployment_name }}
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: rollout_history
+
+      changed_when: false
+
+    - name: Display Rollout History
+
+      debug:
+        var: rollout_history.stdout_lines
+
+###############################################################################
+# Rollback Deployment
+###############################################################################
+
+    - name: Rollback Deployment
+
+      command: >
+        {{ kubectl_binary }}
+        rollout undo
+        deployment/{{ deployment_name }}
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+###############################################################################
+# Wait for Rollback
+###############################################################################
+
+    - name: Wait for Rollback Completion
+
+      command: >
+        {{ kubectl_binary }}
+        rollout status
+        deployment/{{ deployment_name }}
+        -n {{ namespace }}
+        --timeout={{ rollout_timeout }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      changed_when: false
+
+###############################################################################
+# Verify Deployment
+###############################################################################
+
+    - name: Verify Deployment
+
+      command: >
+        {{ kubectl_binary }}
+        get deployment {{ deployment_name }}
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      changed_when: false
+
+###############################################################################
+# Verify Pods
+###############################################################################
+
+    - name: Verify Running Pods
+
+      command: >
+        {{ kubectl_binary }}
+        get pods
+        -n {{ namespace }}
+        -o wide
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: pods
+
+      changed_when: false
+
+###############################################################################
+# Display Current Image
+###############################################################################
+
+    - name: Display Current Image
+
+      command: >
+        {{ kubectl_binary }}
+        get deployment {{ deployment_name }}
+        -n {{ namespace }}
+        -o jsonpath='{.spec.template.spec.containers[0].image}'
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: current_image
+
+      changed_when: false
+
+###############################################################################
+# Display Running Pods
+###############################################################################
+
+    - name: Running Pods
+
+      debug:
+        var: pods.stdout_lines
+
+###############################################################################
+# Rollback Completed
+###############################################################################
+
+    - name: Rollback Successful
+
+      debug:
+        msg:
+          - "Rollback Completed Successfully"
+          - "Current Image : {{ current_image.stdout }}"
+          - "Application Restored"

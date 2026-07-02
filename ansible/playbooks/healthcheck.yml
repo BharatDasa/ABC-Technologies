@@ -1,0 +1,216 @@
+---
+###############################################################################
+# ABC-Technologies
+# Health Check Playbook
+#
+# Purpose:
+# Verify application deployment after Kubernetes rollout.
+#
+###############################################################################
+
+- name: Verify Application Health
+
+  hosts: kubernetes_cluster
+
+  gather_facts: false
+
+  become: true
+
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+
+###############################################################################
+# Deployment Summary
+###############################################################################
+
+    - name: Display Deployment Information
+
+      debug:
+        msg:
+          - "Application : {{ app_name }}"
+          - "Namespace   : {{ namespace }}"
+          - "Image       : {{ image }}"
+
+###############################################################################
+# Verify Deployment Exists
+###############################################################################
+
+    - name: Check Deployment
+
+      command: >
+        {{ kubectl_binary }}
+        get deployment {{ deployment_name }}
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      changed_when: false
+
+###############################################################################
+# Wait for Rollout
+###############################################################################
+
+    - name: Wait for Rollout
+
+      command: >
+        {{ kubectl_binary }}
+        rollout status deployment/{{ deployment_name }}
+        -n {{ namespace }}
+        --timeout={{ rollout_timeout }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      changed_when: false
+
+###############################################################################
+# Verify Pods
+###############################################################################
+
+    - name: Check Pods
+
+      command: >
+        {{ kubectl_binary }}
+        get pods
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: pods
+
+      changed_when: false
+
+###############################################################################
+# Verify Service
+###############################################################################
+
+    - name: Check Service
+
+      command: >
+        {{ kubectl_binary }}
+        get service {{ service_name }}
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      changed_when: false
+
+###############################################################################
+# Verify Endpoints
+###############################################################################
+
+    - name: Check Endpoints
+
+      command: >
+        {{ kubectl_binary }}
+        get endpoints {{ service_name }}
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      changed_when: false
+
+###############################################################################
+# Verify Ingress
+###############################################################################
+
+    - name: Check Ingress
+
+      command: >
+        {{ kubectl_binary }}
+        get ingress {{ ingress_name }}
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      when: ingress_enabled
+
+      changed_when: false
+
+###############################################################################
+# Verify HPA
+###############################################################################
+
+    - name: Check Horizontal Pod Autoscaler
+
+      command: >
+        {{ kubectl_binary }}
+        get hpa
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      when: hpa_enabled
+
+      changed_when: false
+
+###############################################################################
+# Verify ServiceMonitor
+###############################################################################
+
+    - name: Check ServiceMonitor
+
+      command: >
+        {{ kubectl_binary }}
+        get servicemonitor
+        -n {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      when: servicemonitor_enabled
+
+      changed_when: false
+
+###############################################################################
+# Verify Application URL
+###############################################################################
+
+    - name: Verify Application URL
+
+      uri:
+
+        url: "{{ application_url }}"
+
+        method: GET
+
+        status_code: 200
+
+      register: app_status
+
+      retries: 10
+
+      delay: 10
+
+      until: app_status.status == 200
+
+###############################################################################
+# Display Running Pods
+###############################################################################
+
+    - name: Running Pods
+
+      debug:
+
+        var: pods.stdout_lines
+
+###############################################################################
+# Success
+###############################################################################
+
+    - name: Health Check Passed
+
+      debug:
+        msg:
+          - "Application is Healthy"
+          - "Deployment Verified"
+          - "Pods Running Successfully"
+          - "Application URL : {{ application_url }}"

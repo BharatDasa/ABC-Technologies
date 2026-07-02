@@ -1,0 +1,165 @@
+---
+###############################################################################
+# ABC-Technologies
+# Auto Fix Playbook
+#
+# Purpose:
+# Perform safe remediation before deployment.
+# This playbook only fixes common environment issues.
+#
+###############################################################################
+
+- name: Auto Fix Environment
+
+  hosts: kubernetes_cluster
+
+  gather_facts: false
+
+  become: true
+
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+
+###############################################################################
+# Display Information
+###############################################################################
+
+    - name: Display Environment
+
+      debug:
+        msg:
+          - "Application : {{ app_name }}"
+          - "Namespace   : {{ namespace }}"
+          - "Environment : {{ environment }}"
+
+###############################################################################
+# Ensure Log Directory
+###############################################################################
+
+    - name: Create Log Directory
+
+      file:
+        path: "{{ workspace }}/ansible/logs"
+        state: directory
+        mode: "0755"
+
+###############################################################################
+# Ensure Temporary Directory
+###############################################################################
+
+    - name: Create Temporary Directory
+
+      file:
+        path: "{{ tmp_directory }}"
+        state: directory
+        mode: "0755"
+
+###############################################################################
+# Verify Workspace
+###############################################################################
+
+    - name: Check Workspace
+
+      stat:
+        path: "{{ workspace }}"
+
+      register: workspace_dir
+
+    - name: Stop if Workspace Missing
+
+      fail:
+        msg: "Workspace {{ workspace }} does not exist."
+
+      when: not workspace_dir.stat.exists
+
+###############################################################################
+# Verify Manifest Directory
+###############################################################################
+
+    - name: Check Kubernetes Manifest Directory
+
+      stat:
+        path: "{{ manifest_directory }}"
+
+      register: manifest_dir
+
+    - name: Stop if Manifest Directory Missing
+
+      fail:
+        msg: "Kubernetes manifest directory not found."
+
+      when: not manifest_dir.stat.exists
+
+###############################################################################
+# Verify kubectl
+###############################################################################
+
+    - name: Check kubectl
+
+      stat:
+        path: "{{ kubectl_binary }}"
+
+      register: kubectl_binary_status
+
+    - name: Stop if kubectl Missing
+
+      fail:
+        msg: "kubectl binary not found."
+
+      when: not kubectl_binary_status.stat.exists
+
+###############################################################################
+# Fix kubeconfig Permission
+###############################################################################
+
+    - name: Set kubeconfig Permission
+
+      file:
+        path: "{{ kubeconfig }}"
+        owner: "{{ ssh_user }}"
+        mode: "0600"
+
+###############################################################################
+# Ensure Namespace Exists
+###############################################################################
+
+    - name: Check Namespace
+
+      command: >
+        {{ kubectl_binary }}
+        get namespace {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: namespace_check
+
+      ignore_errors: true
+
+      changed_when: false
+
+    - name: Create Namespace
+
+      command: >
+        {{ kubectl_binary }}
+        create namespace {{ namespace }}
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      when: namespace_check.rc != 0
+
+###############################################################################
+# Complete
+###############################################################################
+
+    - name: Auto Fix Completed
+
+      debug:
+        msg:
+          - "Workspace Verified"
+          - "kubectl Verified"
+          - "Namespace Ready"
+          - "Environment Ready for Precheck"
