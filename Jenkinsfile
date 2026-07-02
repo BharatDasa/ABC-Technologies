@@ -80,12 +80,12 @@ pipeline {
 
                 script {
 
-                    env.APP_VERSION =
-                        "1.0.${BUILD_NUMBER}-${System.currentTimeMillis()}"
+                    env.APP_VERSION = "1.0.${env.BUILD_NUMBER}"
+
+                    echo "BUILD_NUMBER       : ${env.BUILD_NUMBER}"
+                    echo "Application Version: ${env.APP_VERSION}"
 
                 }
-
-                echo "Application Version : ${env.APP_VERSION}"
 
             }
 
