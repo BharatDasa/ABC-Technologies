@@ -559,7 +559,7 @@ pipeline {
                             -i ansible/inventory.ini \
                             ansible/playbooks/rollback.yml \
                             --private-key=$SSH_KEY \
-                            -u bharat
+                            -u bharat || true
 
                         '''
 
