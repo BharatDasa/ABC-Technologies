@@ -50,6 +50,8 @@
 
       register: rollout_history
 
+      ignore_errors: true
+      
       changed_when: false
 
     - name: Display Rollout History

@@ -41,7 +41,7 @@
     - name: Create Log Directory
 
       file:
-        path: "{{ workspace }}/ansible/logs"
+        path: "{{ workspace }}/logs"
         state: directory
         mode: "0755"
 
@@ -63,34 +63,17 @@
     - name: Check Workspace
 
       stat:
-        path: "{{ workspace }}"
+        path: "{{ tmp_directory }}"
 
-      register: workspace_dir
+      register: tmp_dir
 
     - name: Stop if Workspace Missing
 
       fail:
-        msg: "Workspace {{ workspace }} does not exist."
+        msg: "Temporary directory missing."
 
-      when: not workspace_dir.stat.exists
-
-###############################################################################
-# Verify Manifest Directory
-###############################################################################
-
-    - name: Check Kubernetes Manifest Directory
-
-      stat:
-        path: "{{ manifest_directory }}"
-
-      register: manifest_dir
-
-    - name: Stop if Manifest Directory Missing
-
-      fail:
-        msg: "Kubernetes manifest directory not found."
-
-      when: not manifest_dir.stat.exists
+      when: not tmp_dir.stat.exists
+      
 
 ###############################################################################
 # Verify kubectl
