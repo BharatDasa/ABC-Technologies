@@ -83,7 +83,7 @@ pipeline {
 
                 }
 
-                echo "Application Version : ${APP_VERSION}"
+                echo "Application Version : ${env.APP_VERSION}"
 
             }
 
