@@ -5,10 +5,12 @@
 	<groupId>com.abc</groupId>
 	<artifactId>ABCtechnologies</artifactId>
 	<packaging>war</packaging>
-	<version>1.0</version>
+	<version>${revision}${changelist}</version>
 	<name>RetailModule</name>
 	<url>http://www.example.com</url>
 	<properties>
+		<revision>1.0.0</revision>
+    	<changelist></changelist>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
