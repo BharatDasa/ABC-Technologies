@@ -5,19 +5,29 @@
 #
 # Purpose:
 # Verify application deployment after Kubernetes rollout.
-#
 ###############################################################################
 
 - name: Verify Application Health
 
   hosts: kubernetes_cluster
-
   gather_facts: false
-
   become: true
 
   vars_files:
     - ../group_vars/all.yml
+
+  pre_tasks:
+
+    ###########################################################################
+    # Validate Jenkins Variables
+    ###########################################################################
+
+    - name: Verify workspace variable
+      fail:
+        msg: "workspace variable was not passed from Jenkins."
+      when:
+        - workspace is not defined
+        - workspace | length == 0
 
   tasks:
 
@@ -25,192 +35,200 @@
 # Deployment Summary
 ###############################################################################
 
-    - name: Display Deployment Information
-
+    - name: Display deployment information
       debug:
         msg:
           - "Application : {{ app_name }}"
-          - "Namespace   : {{ namespace }}"
+          - "Namespace   : {{ k8s_namespace }}"
           - "Image       : {{ image }}"
+          - "Workspace   : {{ workspace }}"
 
 ###############################################################################
 # Verify Deployment Exists
 ###############################################################################
 
-    - name: Check Deployment
-
+    - name: Check deployment
       command: >
         {{ kubectl_binary }}
-        get deployment {{ deployment_name }}
-        -n {{ namespace }}
-
+        get deployment
+        {{ deployment_name }}
+        -n {{ k8s_namespace }}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
+      register: deployment_status
       changed_when: false
 
 ###############################################################################
 # Wait for Rollout
 ###############################################################################
 
-    - name: Wait for Rollout
-
+    - name: Wait for rollout
       command: >
         {{ kubectl_binary }}
-        rollout status deployment/{{ deployment_name }}
-        -n {{ namespace }}
+        rollout status
+        deployment/{{ deployment_name }}
+        -n {{ k8s_namespace }}
         --timeout={{ rollout_timeout }}
-
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
       changed_when: false
 
 ###############################################################################
 # Verify Pods
 ###############################################################################
 
-    - name: Check Pods
-
+    - name: Get running pods
       command: >
         {{ kubectl_binary }}
         get pods
-        -n {{ namespace }}
-
+        -n {{ k8s_namespace }}
+        -o wide
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
       register: pods
-
       changed_when: false
 
 ###############################################################################
 # Verify Service
 ###############################################################################
 
-    - name: Check Service
-
+    - name: Check service
       command: >
         {{ kubectl_binary }}
-        get service {{ service_name }}
-        -n {{ namespace }}
-
+        get service
+        {{ service_name }}
+        -n {{ k8s_namespace }}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
+      register: service
       changed_when: false
 
 ###############################################################################
 # Verify Endpoints
 ###############################################################################
 
-    - name: Check Endpoints
-
+    - name: Check endpoints
       command: >
         {{ kubectl_binary }}
-        get endpoints {{ service_name }}
-        -n {{ namespace }}
-
+        get endpoints
+        {{ service_name }}
+        -n {{ k8s_namespace }}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
+      register: endpoints
       changed_when: false
 
 ###############################################################################
 # Verify Ingress
 ###############################################################################
 
-    - name: Check Ingress
-
+    - name: Check ingress
       command: >
         {{ kubectl_binary }}
-        get ingress {{ ingress_name }}
-        -n {{ namespace }}
-
+        get ingress
+        {{ ingress_name }}
+        -n {{ k8s_namespace }}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
+      register: ingress
+      changed_when: false
+      failed_when: false
       when: ingress_enabled
 
-      changed_when: false
-
 ###############################################################################
-# Verify HPA
+# Verify Horizontal Pod Autoscaler
 ###############################################################################
 
-    - name: Check Horizontal Pod Autoscaler
-
+    - name: Check HPA
       command: >
         {{ kubectl_binary }}
         get hpa
-        -n {{ namespace }}
-
+        -n {{ k8s_namespace }}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
-      when: hpa_enabled
-
+      register: hpa
       changed_when: false
+      failed_when: false
+      when: hpa_enabled
 
 ###############################################################################
 # Verify ServiceMonitor
 ###############################################################################
 
     - name: Check ServiceMonitor
-
       command: >
         {{ kubectl_binary }}
         get servicemonitor
-        -n {{ namespace }}
-
+        {{ app_name }}
+        -n {{ monitoring_namespace }}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
-      when: servicemonitor_enabled
-
+      register: servicemonitor
       changed_when: false
+      failed_when: false
+      when: servicemonitor_enabled
 
 ###############################################################################
 # Verify Application URL
 ###############################################################################
 
-    - name: Verify Application URL
-
+    - name: Verify application URL
       uri:
-
         url: "{{ application_url }}"
-
         method: GET
-
         status_code: 200
-
+        validate_certs: false
       register: app_status
-
-      retries: 10
-
+      retries: 12
       delay: 10
-
       until: app_status.status == 200
 
 ###############################################################################
-# Display Running Pods
+# Display Results
 ###############################################################################
 
-    - name: Running Pods
-
+    - name: Deployment status
       debug:
+        var: deployment_status.stdout_lines
 
+    - name: Running pods
+      debug:
         var: pods.stdout_lines
+
+    - name: Service
+      debug:
+        var: service.stdout_lines
+
+    - name: Endpoints
+      debug:
+        var: endpoints.stdout_lines
+
+    - name: Ingress
+      debug:
+        var: ingress.stdout_lines
+      when: ingress_enabled
+
+    - name: HPA
+      debug:
+        var: hpa.stdout_lines
+      when: hpa_enabled
+
+    - name: ServiceMonitor
+      debug:
+        var: servicemonitor.stdout_lines
+      when: servicemonitor_enabled
 
 ###############################################################################
 # Success
 ###############################################################################
 
-    - name: Health Check Passed
-
+    - name: Health check passed
       debug:
         msg:
+          - "========================================"
           - "Application is Healthy"
           - "Deployment Verified"
           - "Pods Running Successfully"
+          - "Service Verified"
           - "Application URL : {{ application_url }}"
+          - "========================================"

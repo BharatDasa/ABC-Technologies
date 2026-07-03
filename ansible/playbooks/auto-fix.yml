@@ -4,8 +4,8 @@
 # Auto Fix Playbook
 #
 # Purpose:
-# Perform safe remediation before deployment.
-# This playbook only fixes common environment issues.
+# Prepare the Kubernetes environment before deployment.
+# Safe to execute multiple times.
 #
 ###############################################################################
 
@@ -23,27 +23,16 @@
   tasks:
 
 ###############################################################################
-# Display Information
+# Display Configuration
 ###############################################################################
 
-    - name: Display Environment
+    - name: Display Deployment Information
 
       debug:
         msg:
           - "Application : {{ app_name }}"
-          - "Namespace   : {{ namespace }}"
-          - "Environment : {{ environment }}"
-
-###############################################################################
-# Ensure Log Directory
-###############################################################################
-
-    - name: Create Log Directory
-
-      file:
-        path: "{{ workspace }}/logs"
-        state: directory
-        mode: "0755"
+          - "Namespace   : {{ k8s_namespace }}"
+          - "Environment : {{ deployment_environment }}"
 
 ###############################################################################
 # Ensure Temporary Directory
@@ -57,41 +46,66 @@
         mode: "0755"
 
 ###############################################################################
-# Verify Workspace
+# Ensure Backup Directory
 ###############################################################################
 
-    - name: Check Workspace
+    - name: Create Backup Directory
 
-      stat:
-        path: "{{ tmp_directory }}"
+      file:
+        path: "{{ backup_directory }}"
+        state: directory
+        mode: "0755"
 
-      register: tmp_dir
+###############################################################################
+# Ensure Log Directory
+###############################################################################
 
-    - name: Stop if Workspace Missing
+    - name: Create Log Directory
 
-      fail:
-        msg: "Temporary directory missing."
-
-      when: not tmp_dir.stat.exists
-      
+      file:
+        path: "{{ log_directory }}"
+        state: directory
+        mode: "0755"
 
 ###############################################################################
 # Verify kubectl
 ###############################################################################
 
-    - name: Check kubectl
+    - name: Check kubectl Binary
 
       stat:
         path: "{{ kubectl_binary }}"
 
-      register: kubectl_binary_status
+      register: kubectl_status
 
-    - name: Stop if kubectl Missing
+      changed_when: false
+
+    - name: Fail if kubectl Missing
 
       fail:
-        msg: "kubectl binary not found."
+        msg: "kubectl not found at {{ kubectl_binary }}"
 
-      when: not kubectl_binary_status.stat.exists
+      when: not kubectl_status.stat.exists
+
+###############################################################################
+# Verify kubeconfig
+###############################################################################
+
+    - name: Check kubeconfig
+
+      stat:
+        path: "{{ kubeconfig }}"
+
+      register: kubeconfig_status
+
+      changed_when: false
+
+    - name: Fail if kubeconfig Missing
+
+      fail:
+        msg: "kubeconfig not found at {{ kubeconfig }}"
+
+      when: not kubeconfig_status.stat.exists
 
 ###############################################################################
 # Fix kubeconfig Permission
@@ -105,14 +119,17 @@
         mode: "0600"
 
 ###############################################################################
-# Ensure Namespace Exists
+# Verify Namespace
 ###############################################################################
 
     - name: Check Namespace
 
-      command: >
-        {{ kubectl_binary }}
-        get namespace {{ namespace }}
+      command:
+        argv:
+          - "{{ kubectl_binary }}"
+          - get
+          - namespace
+          - "{{ k8s_namespace }}"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
@@ -123,16 +140,41 @@
 
       changed_when: false
 
+###############################################################################
+# Create Namespace
+###############################################################################
+
     - name: Create Namespace
 
-      command: >
-        {{ kubectl_binary }}
-        create namespace {{ namespace }}
+      command:
+        argv:
+          - "{{ kubectl_binary }}"
+          - create
+          - namespace
+          - "{{ k8s_namespace }}"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
 
       when: namespace_check.rc != 0
+
+###############################################################################
+# Verify Cluster Connectivity
+###############################################################################
+
+    - name: Verify Kubernetes Cluster
+
+      command:
+        argv:
+          - "{{ kubectl_binary }}"
+          - cluster-info
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: cluster_info
+
+      changed_when: false
 
 ###############################################################################
 # Complete
@@ -142,7 +184,11 @@
 
       debug:
         msg:
-          - "Workspace Verified"
-          - "kubectl Verified"
-          - "Namespace Ready"
-          - "Environment Ready for Precheck"
+          - "Temporary Directory : OK"
+          - "Backup Directory    : OK"
+          - "Log Directory       : OK"
+          - "kubectl             : OK"
+          - "kubeconfig          : OK"
+          - "Namespace           : {{ k8s_namespace }}"
+          - "Cluster             : Reachable"
+          - "Environment Ready for Deployment"

@@ -4,130 +4,116 @@
 # Pre-Deployment Validation
 #
 # Purpose:
-# Validate the Kubernetes environment before deployment.
-#
+# Validate Kubernetes environment before deployment.
 ###############################################################################
 
 - name: Pre-Deployment Validation
 
   hosts: kubernetes_cluster
-
   gather_facts: false
-
   become: true
 
   vars_files:
     - ../group_vars/all.yml
 
-  tasks:
+  pre_tasks:
 
 ###############################################################################
-# Display Information
+# Verify Jenkins Variables
 ###############################################################################
 
-    - name: Display Deployment Information
+    - name: Verify workspace variable
+      fail:
+        msg: "workspace variable was not passed from Jenkins."
+      when:
+        - workspace is not defined
+        - workspace | length == 0
 
+###############################################################################
+# Display Deployment Information
+###############################################################################
+
+    - name: Display deployment information
       debug:
         msg:
           - "Application : {{ app_name }}"
-          - "Namespace   : {{ namespace }}"
+          - "Namespace   : {{ k8s_namespace }}"
           - "Image       : {{ image }}"
-          - "Environment : {{ environment }}"
+          - "Environment : {{ deployment_environment }}"
+          - "Workspace   : {{ workspace }}"
+
+  tasks:
 
 ###############################################################################
 # Verify kubectl
 ###############################################################################
 
-    - name: Verify kubectl
-
+    - name: Verify kubectl installation
       command: "{{ kubectl_binary }} version --client"
-
       register: kubectl_check
-
       changed_when: false
 
 ###############################################################################
 # Verify Kubernetes Cluster
 ###############################################################################
 
-    - name: Verify Cluster Connectivity
-
+    - name: Verify cluster connectivity
       command: >
         {{ kubectl_binary }} cluster-info
-
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
       register: cluster
-
       changed_when: false
 
 ###############################################################################
-# Verify Nodes
+# Verify Kubernetes Nodes
 ###############################################################################
 
-    - name: Verify Kubernetes Nodes
-
+    - name: Verify Kubernetes nodes
       command: >
         {{ kubectl_binary }} get nodes
-
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
       register: nodes
-
       changed_when: false
 
 ###############################################################################
 # Verify Namespace
 ###############################################################################
 
-    - name: Verify Namespace
-
+    - name: Verify namespace
       command: >
-        {{ kubectl_binary }} get namespace {{ namespace }}
-
+        {{ kubectl_binary }} get namespace {{ k8s_namespace }}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
-      register: namespace
-
+      register: namespace_status
       changed_when: false
 
 ###############################################################################
-# Verify Registry
+# Verify Docker Registry
 ###############################################################################
 
-    - name: Verify Docker Registry
-
+    - name: Verify Docker registry
       uri:
-
         url: "http://{{ registry }}/v2/"
-
         method: GET
-
-        status_code: [200,401]
-
-      register: registry
+        status_code:
+          - 200
+          - 401
+      register: registry_status
 
 ###############################################################################
 # Verify Manifest Directory
 ###############################################################################
 
-    - name: Verify Manifest Directory
-
+    - name: Verify manifest directory
       stat:
-
-        path: "{{ manifest_directory }}"
-
+        path: "{{ workspace }}/kubernetes"
       register: manifests
 
-    - name: Fail if Manifest Directory Missing
-
+    - name: Fail if manifest directory is missing
       fail:
-
-        msg: "Kubernetes manifest directory not found."
-
+        msg: "Kubernetes manifest directory not found inside Jenkins workspace."
       when: not manifests.stat.exists
 
 ###############################################################################
@@ -135,75 +121,94 @@
 ###############################################################################
 
     - name: Verify Istio
-
       command: >
         {{ kubectl_binary }}
         get pods
         -n {{ istio_namespace }}
-
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
-      when: istio_enabled
-
+      register: istio_status
       changed_when: false
+      failed_when: false
+      when: istio_enabled
 
 ###############################################################################
 # Verify Monitoring Stack
 ###############################################################################
 
-    - name: Verify Monitoring
-
+    - name: Verify Monitoring Stack
       command: >
         {{ kubectl_binary }}
         get pods
         -n {{ monitoring_namespace }}
-
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
+      register: monitoring_status
+      changed_when: false
+      failed_when: false
       when: monitoring_enabled
 
-      changed_when: false
-
 ###############################################################################
-# Verify Storage Class
+# Verify StorageClass
 ###############################################################################
 
     - name: Verify StorageClass
-
       command: >
         {{ kubectl_binary }}
         get storageclass {{ storage_class }}
-
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
+      register: storageclass_status
       changed_when: false
 
 ###############################################################################
-# Display Cluster
+# Display Cluster Information
 ###############################################################################
 
-    - name: Display Node Status
-
+    - name: Display kubectl version
       debug:
+        var: kubectl_check.stdout_lines
 
+    - name: Display cluster information
+      debug:
+        var: cluster.stdout_lines
+
+    - name: Display node status
+      debug:
         var: nodes.stdout_lines
 
-###############################################################################
-# Success
-###############################################################################
-
-    - name: Precheck Passed
-
+    - name: Display namespace
       debug:
+        var: namespace_status.stdout_lines
 
+    - name: Display storage class
+      debug:
+        var: storageclass_status.stdout_lines
+
+    - name: Display Istio
+      debug:
+        var: istio_status.stdout_lines
+      when: istio_enabled
+
+    - name: Display Monitoring
+      debug:
+        var: monitoring_status.stdout_lines
+      when: monitoring_enabled
+
+###############################################################################
+# Precheck Complete
+###############################################################################
+
+    - name: Precheck passed
+      debug:
         msg:
-          - "Kubernetes Cluster Reachable"
-          - "Registry Reachable"
-          - "Namespace Exists"
-          - "Istio Available"
-          - "Monitoring Available"
-          - "StorageClass Available"
+          - "========================================"
+          - "Pre-deployment validation successful"
+          - "kubectl Verified"
+          - "Cluster Reachable"
+          - "Namespace Verified"
+          - "Docker Registry Reachable"
+          - "StorageClass Verified"
+          - "Manifest Directory Verified"
           - "Environment Ready for Deployment"
+          - "========================================"

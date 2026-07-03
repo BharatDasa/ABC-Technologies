@@ -4,7 +4,7 @@
 # Cleanup Playbook
 #
 # Purpose:
-# Clean temporary deployment files after successful deployment.
+# Cleanup temporary deployment artifacts after a successful deployment.
 #
 ###############################################################################
 
@@ -22,7 +22,7 @@
   tasks:
 
 ###############################################################################
-# Deployment Summary
+# Display Information
 ###############################################################################
 
     - name: Display Cleanup Information
@@ -30,7 +30,7 @@
       debug:
         msg:
           - "Application : {{ app_name }}"
-          - "Namespace   : {{ namespace }}"
+          - "Namespace   : {{ k8s_namespace }}"
           - "Cleanup     : Starting"
 
 ###############################################################################
@@ -43,107 +43,66 @@
         path: "{{ tmp_directory }}"
         state: absent
 
+      when: cleanup_tmp_directory
+
 ###############################################################################
-# Recreate Temporary Directory
+# Recreate Working Directories
 ###############################################################################
 
     - name: Recreate Temporary Directory
 
       file:
-        path: "{{ tmp_directory }}"
+        path: "{{ item }}"
         state: directory
         mode: "0755"
 
-###############################################################################
-# Remove Ansible Retry Files
-###############################################################################
-
-    - name: Remove Retry Files
-
-      shell: |
-        find {{ workspace }} -name "*.retry" -type f -delete
-
-      args:
-        executable: /bin/bash
-
-      changed_when: false
-
-      ignore_errors: true
+      loop:
+        - "{{ tmp_directory }}"
+        - "{{ backup_directory }}"
+        - "{{ log_directory }}"
 
 ###############################################################################
-# Remove Temporary Files
+# Remove Old Log Files
 ###############################################################################
 
-    - name: Remove Temporary Files
+    - name: Find Old Log Files
 
-      shell: |
-        find {{ workspace }} -name "*.tmp" -type f -delete
+      find:
+        paths: "{{ log_directory }}"
+        age: 7d
+        recurse: true
+        file_type: file
 
-      args:
-        executable: /bin/bash
-
-      changed_when: false
-
-      ignore_errors: true
+      register: old_logs
 
 ###############################################################################
-# Remove Backup Files
+# Delete Old Log Files
 ###############################################################################
 
-    - name: Remove Backup Files
+    - name: Delete Old Log Files
 
-      shell: |
-        find {{ workspace }} -name "*.bak" -type f -delete
+      file:
+        path: "{{ item.path }}"
+        state: absent
 
-      args:
-        executable: /bin/bash
+      loop: "{{ old_logs.files }}"
 
-      changed_when: false
-
-      ignore_errors: true
+      when: old_logs.matched > 0
 
 ###############################################################################
-# Remove Python Cache
+# Verify Deployment
 ###############################################################################
 
-    - name: Remove Python Cache
+    - name: Get Deployment
 
-      shell: |
-        find {{ workspace }} -name "__pycache__" -type d -exec rm -rf {} +
-
-      args:
-        executable: /bin/bash
-
-      changed_when: false
-
-      ignore_errors: true
-
-###############################################################################
-# Remove Old Logs (Older than 7 Days)
-###############################################################################
-
-    - name: Remove Old Log Files
-
-      shell: |
-        find {{ workspace }}/ansible/logs -type f -mtime +7 -delete
-
-      args:
-        executable: /bin/bash
-
-      changed_when: false
-
-      ignore_errors: true
-
-###############################################################################
-# Display Deployment
-###############################################################################
-
-    - name: Deployment Status
-
-      command: >
-        {{ kubectl_binary }}
-        get deployment
-        -n {{ namespace }}
+      command:
+        argv:
+          - "{{ kubectl_binary }}"
+          - get
+          - deployment
+          - "{{ deployment_name }}"
+          - "-n"
+          - "{{ k8s_namespace }}"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
@@ -153,15 +112,18 @@
       changed_when: false
 
 ###############################################################################
-# Display Pods
+# Verify Pods
 ###############################################################################
 
-    - name: Running Pods
+    - name: Get Pods
 
-      command: >
-        {{ kubectl_binary }}
-        get pods
-        -n {{ namespace }}
+      command:
+        argv:
+          - "{{ kubectl_binary }}"
+          - get
+          - pods
+          - "-n"
+          - "{{ k8s_namespace }}"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
@@ -171,33 +133,41 @@
       changed_when: false
 
 ###############################################################################
-# Display Services
+# Verify Service
 ###############################################################################
 
-    - name: Services
+    - name: Get Service
 
-      command: >
-        {{ kubectl_binary }}
-        get svc
-        -n {{ namespace }}
+      command:
+        argv:
+          - "{{ kubectl_binary }}"
+          - get
+          - svc
+          - "{{ service_name }}"
+          - "-n"
+          - "{{ k8s_namespace }}"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
 
-      register: services
+      register: service
 
       changed_when: false
 
 ###############################################################################
-# Display Ingress
+# Verify Ingress
 ###############################################################################
 
-    - name: Ingress
+    - name: Get Ingress
 
-      command: >
-        {{ kubectl_binary }}
-        get ingress
-        -n {{ namespace }}
+      command:
+        argv:
+          - "{{ kubectl_binary }}"
+          - get
+          - ingress
+          - "{{ ingress_name }}"
+          - "-n"
+          - "{{ k8s_namespace }}"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
@@ -209,14 +179,17 @@
       changed_when: false
 
 ###############################################################################
-# Cleanup Complete
+# Summary
 ###############################################################################
 
     - name: Cleanup Complete
 
       debug:
         msg:
-          - "Temporary Files Removed"
-          - "Deployment Verified"
-          - "Application URL : {{ application_url }}"
+          - "Temporary Directory : Clean"
+          - "Backup Directory    : Ready"
+          - "Log Directory       : Ready"
+          - "Deployment          : {{ deployment_name }}"
+          - "Namespace           : {{ k8s_namespace }}"
+          - "Application URL     : {{ application_url }}"
           - "Cleanup Completed Successfully"

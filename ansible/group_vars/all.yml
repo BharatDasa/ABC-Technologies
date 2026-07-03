@@ -13,7 +13,7 @@
 
 app_name: abc-technologies
 
-environment: production
+deployment_environment: production
 
 ###############################################################################
 # Docker Registry
@@ -26,10 +26,10 @@ repository: "{{ app_name }}"
 ###############################################################################
 # Image
 #
-# Jenkins overrides image_tag during deployment:
+# Jenkins overrides image_tag:
 #
 # ansible-playbook deploy.yml \
-#     -e image_tag=v25
+#   -e image_tag=v25
 #
 ###############################################################################
 
@@ -41,7 +41,7 @@ image: "{{ registry }}/{{ repository }}:{{ image_tag }}"
 # Kubernetes
 ###############################################################################
 
-namespace: "{{ app_name }}"
+k8s_namespace: "{{ app_name }}"
 
 deployment_name: "{{ app_name }}"
 
@@ -110,7 +110,7 @@ max_replicas: 10
 target_cpu_utilization: 70
 
 ###############################################################################
-# Resource Requests & Limits
+# Resource Requests
 ###############################################################################
 
 cpu_request: "250m"
@@ -135,7 +135,7 @@ health_path: "/"
 
 application_url: "http://abc.192.168.56.100.nip.io"
 
-rollout_timeout: 180s
+rollout_timeout: "180s"
 
 ###############################################################################
 # Deployment Strategy
@@ -161,6 +161,6 @@ app_labels:
 
   app: "{{ app_name }}"
 
-  environment: "{{ environment }}"
+  environment: "{{ deployment_environment }}"
 
   managed-by: ansible

@@ -5,73 +5,78 @@
 #
 # Purpose:
 # Deploy the application to Kubernetes
-#
 ###############################################################################
 
 - name: Deploy ABC-Technologies
 
   hosts: kubernetes_cluster
-
   gather_facts: false
-
   become: true
 
   vars_files:
     - ../group_vars/all.yml
 
-  tasks:
+  pre_tasks:
 
-###############################################################################
-# Deployment Summary
-###############################################################################
+    ###########################################################################
+    # Validate Jenkins Variables
+    ###########################################################################
 
-    - name: Deployment Summary
+    - name: Verify Jenkins workspace variable
+      fail:
+        msg: "workspace variable was not passed from Jenkins."
+      when:
+        - workspace is not defined
+        - workspace | length == 0
 
+    - name: Display Deployment Summary
       debug:
         msg:
           - "Application : {{ app_name }}"
           - "Image       : {{ image }}"
-          - "Namespace   : {{ namespace }}"
-          - "Environment : {{ environment }}"
+          - "Namespace   : {{ k8s_namespace }}"
+          - "Environment : {{ deployment_environment }}"
+          - "Workspace   : {{ workspace }}"
+
+  tasks:
 
 ###############################################################################
 # Create Temporary Directory
 ###############################################################################
 
     - name: Create deployment directory
-
       file:
-
         path: "{{ tmp_directory }}"
-
         state: directory
-
-        mode: '0755'
+        mode: "0755"
 
 ###############################################################################
 # Remove Previous Kubernetes Manifests
 ###############################################################################
 
     - name: Remove previous manifests
-
       file:
-
         path: "{{ manifest_directory }}"
-
         state: absent
+
+###############################################################################
+# Recreate Manifest Directory
+###############################################################################
+
+    - name: Create manifest directory
+      file:
+        path: "{{ manifest_directory }}"
+        state: directory
+        mode: "0755"
 
 ###############################################################################
 # Copy Kubernetes Manifests
 ###############################################################################
 
     - name: Copy Kubernetes manifests
-
       copy:
-
         src: "{{ workspace }}/kubernetes/"
-
         dest: "{{ manifest_directory }}/"
-
         mode: preserve
 
 ###############################################################################
@@ -79,31 +84,22 @@
 ###############################################################################
 
     - name: Verify copied manifests
-
-      command:
-
-        ls -la "{{ manifest_directory }}"
-
+      command: ls -la "{{ manifest_directory }}"
       register: manifest_files
-
       changed_when: false
 
-    - debug:
-
+    - name: Display copied manifests
+      debug:
         var: manifest_files.stdout_lines
 
 ###############################################################################
-# Update Deployment Image
+# Replace Image
 ###############################################################################
 
     - name: Replace IMAGE_PLACEHOLDER
-
       replace:
-
         path: "{{ manifest_directory }}/deployment.yaml"
-
-        regexp: 'IMAGE_PLACEHOLDER'
-
+        regexp: "IMAGE_PLACEHOLDER"
         replace: "{{ image }}"
 
 ###############################################################################
@@ -111,195 +107,130 @@
 ###############################################################################
 
     - name: Verify deployment image
-
       shell: |
-
-        grep image "{{ manifest_directory }}/deployment.yaml"
-
+        grep "image:" "{{ manifest_directory }}/deployment.yaml"
       register: deployment_image
-
       changed_when: false
 
-    - debug:
-
+    - name: Display deployment image
+      debug:
         var: deployment_image.stdout_lines
 
 ###############################################################################
-# Deploy Application
+# Deploy Kubernetes Resources
 ###############################################################################
 
     - name: Deploy Kubernetes resources
-
       command: >
-
         {{ kubectl_binary }}
-
         apply
-
         -k
-
         {{ manifest_directory }}
-
       environment:
-
         KUBECONFIG: "{{ kubeconfig }}"
-
       register: deployment_result
+      changed_when: true
 
 ###############################################################################
 # Display Deployment Output
 ###############################################################################
 
-    - debug:
-
+    - name: Display deployment output
+      debug:
         var: deployment_result.stdout_lines
 
-        ###############################################################################
+###############################################################################
 # Wait for Deployment Rollout
 ###############################################################################
 
-    - name: Wait for Deployment Rollout
-
+    - name: Wait for deployment rollout
       command: >
-
         {{ kubectl_binary }}
-
         rollout
-
         status
-
         deployment/{{ deployment_name }}
-
-        -n {{ namespace }}
-
+        -n {{ k8s_namespace }}
         --timeout={{ rollout_timeout }}
-
       environment:
-
         KUBECONFIG: "{{ kubeconfig }}"
 
 ###############################################################################
-# Deployment Information
+# Deployment Status
 ###############################################################################
 
-    - name: Get Deployment Status
-
+    - name: Get deployment status
       command: >
-
         {{ kubectl_binary }}
-
-        get
-
-        deployment
-
+        get deployment
         {{ deployment_name }}
-
-        -n {{ namespace }}
-
+        -n {{ k8s_namespace }}
       environment:
-
         KUBECONFIG: "{{ kubeconfig }}"
-
       register: deployment_status
-
       changed_when: false
 
-    - debug:
-
+    - name: Display deployment status
+      debug:
         var: deployment_status.stdout_lines
 
 ###############################################################################
-# Pod Information
+# Running Pods
 ###############################################################################
 
-    - name: Get Running Pods
-
+    - name: Get running pods
       command: >
-
         {{ kubectl_binary }}
-
-        get
-
-        pods
-
-        -n {{ namespace }}
-
+        get pods
+        -n {{ k8s_namespace }}
         -o wide
-
       environment:
-
         KUBECONFIG: "{{ kubeconfig }}"
-
       register: pod_status
-
       changed_when: false
 
-    - debug:
-
+    - name: Display running pods
+      debug:
         var: pod_status.stdout_lines
 
 ###############################################################################
-# Service Information
+# Service Status
 ###############################################################################
 
-    - name: Get Service
-
+    - name: Get service
       command: >
-
         {{ kubectl_binary }}
-
-        get
-
-        svc
-
+        get svc
         {{ service_name }}
-
-        -n {{ namespace }}
-
+        -n {{ k8s_namespace }}
       environment:
-
         KUBECONFIG: "{{ kubeconfig }}"
-
       register: service_status
-
       changed_when: false
 
-    - debug:
-
+    - name: Display service
+      debug:
         var: service_status.stdout_lines
 
 ###############################################################################
-# Ingress Information
+# Ingress Status
 ###############################################################################
 
-    - name: Get Ingress
-
+    - name: Get ingress
       command: >
-
         {{ kubectl_binary }}
-
-        get
-
-        ingress
-
+        get ingress
         {{ ingress_name }}
-
-        -n {{ namespace }}
-
+        -n {{ k8s_namespace }}
       environment:
-
         KUBECONFIG: "{{ kubeconfig }}"
-
-      register: ingress_status
-
-      changed_when: false
-
       when: ingress_enabled
+      register: ingress_status
+      changed_when: false
+      failed_when: false
 
-    - debug:
-
+    - name: Display ingress
+      debug:
         var: ingress_status.stdout_lines
-
       when: ingress_enabled
 
 ###############################################################################
@@ -307,31 +238,20 @@
 ###############################################################################
 
     - name: Get HPA
-
       command: >
-
         {{ kubectl_binary }}
-
-        get
-
-        hpa
-
-        -n {{ namespace }}
-
+        get hpa
+        -n {{ k8s_namespace }}
       environment:
-
         KUBECONFIG: "{{ kubeconfig }}"
-
-      register: hpa_status
-
-      changed_when: false
-
       when: hpa_enabled
+      register: hpa_status
+      changed_when: false
+      failed_when: false
 
-    - debug:
-
+    - name: Display HPA
+      debug:
         var: hpa_status.stdout_lines
-
       when: hpa_enabled
 
 ###############################################################################
@@ -339,49 +259,33 @@
 ###############################################################################
 
     - name: Get ServiceMonitor
-
       command: >
-
         {{ kubectl_binary }}
-
-        get
-
-        servicemonitor
-
+        get servicemonitor
         {{ app_name }}
-
         -n {{ monitoring_namespace }}
-
       environment:
-
         KUBECONFIG: "{{ kubeconfig }}"
-
+      when: servicemonitor_enabled
       register: servicemonitor_status
-
       changed_when: false
-
       failed_when: false
 
-      when: servicemonitor_enabled
-
-    - debug:
-
-        var: servicemonitor_status.stdout_lines
-
-      when: servicemonitor_enabled
-
-###############################################################################
-# Deployment Summary
-###############################################################################
-
-    - name: Deployment Completed
-
+    - name: Display ServiceMonitor
       debug:
+        var: servicemonitor_status.stdout_lines
+      when: servicemonitor_enabled
 
+###############################################################################
+# Deployment Complete
+###############################################################################
+
+    - name: Deployment completed
+      debug:
         msg:
           - "========================================"
           - "ABC-Technologies deployed successfully"
-          - "Namespace : {{ namespace }}"
+          - "Namespace : {{ k8s_namespace }}"
           - "Deployment: {{ deployment_name }}"
           - "Image     : {{ image }}"
           - "URL       : {{ application_url }}"

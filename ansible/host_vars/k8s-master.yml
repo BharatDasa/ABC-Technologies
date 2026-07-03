@@ -17,13 +17,13 @@ control_plane: true
 # kubectl
 ###############################################################################
 
-kubectl_binary: /usr/bin/kubectl
+kubectl_binary: "/usr/bin/kubectl"
 
 ###############################################################################
 # kubeconfig
 ###############################################################################
 
-kubeconfig: /home/bharat/.kube/config
+kubeconfig: "/home/bharat/.kube/config"
 
 ###############################################################################
 # Kubernetes API Server
@@ -32,16 +32,15 @@ kubeconfig: /home/bharat/.kube/config
 api_server: "https://192.168.56.10:6443"
 
 ###############################################################################
-# SSH User
+# SSH
 ###############################################################################
 
-ssh_user: bharat
+ssh_user: "bharat"
 
 ###############################################################################
-# Temporary Deployment Directory
+# Temporary Working Directory
 #
-# Jenkins copies Kubernetes manifests here during deployment.
-# This directory is recreated on every deployment.
+# Jenkins copies manifests here before deployment.
 ###############################################################################
 
 tmp_directory: "/tmp/abc-technologies"
@@ -53,25 +52,33 @@ tmp_directory: "/tmp/abc-technologies"
 manifest_directory: "{{ tmp_directory }}/kubernetes"
 
 ###############################################################################
-# Temporary Manifest Backup
+# Backup Directory
 ###############################################################################
 
 backup_directory: "{{ tmp_directory }}/backup"
 
 ###############################################################################
+# Logs
+###############################################################################
+
+log_directory: "{{ tmp_directory }}/logs"
+
+###############################################################################
 # kubectl Rollout Timeout
 ###############################################################################
 
-kubectl_timeout: 180s
+kubectl_timeout: "180s"
 
 ###############################################################################
-# Cleanup After Deployment
+# Cleanup
 ###############################################################################
 
 cleanup_tmp_directory: true
 
 ###############################################################################
 # Kubernetes Context
+#
+# Leave empty to use the current context.
 ###############################################################################
 
 kube_context: ""

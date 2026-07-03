@@ -5,57 +5,82 @@
 #
 # Purpose:
 # Roll back the application to the previous successful deployment.
-#
 ###############################################################################
 
 - name: Rollback ABC-Technologies
 
   hosts: kubernetes_cluster
-
   gather_facts: false
-
   become: true
 
   vars_files:
     - ../group_vars/all.yml
 
-  tasks:
+  pre_tasks:
 
 ###############################################################################
-# Deployment Summary
+# Verify Jenkins Variables
 ###############################################################################
 
-    - name: Display Rollback Information
+    - name: Verify workspace variable
+      fail:
+        msg: "workspace variable was not passed from Jenkins."
+      when:
+        - workspace is not defined
+        - workspace | length == 0
 
+###############################################################################
+# Display Rollback Information
+###############################################################################
+
+    - name: Display rollback information
       debug:
         msg:
           - "Application : {{ app_name }}"
-          - "Namespace   : {{ namespace }}"
+          - "Namespace   : {{ k8s_namespace }}"
+          - "Workspace   : {{ workspace }}"
           - "Rollback    : Starting"
+
+  tasks:
+
+###############################################################################
+# Verify Deployment Exists
+###############################################################################
+
+    - name: Verify deployment exists
+      command: >
+        {{ kubectl_binary }}
+        get deployment
+        {{ deployment_name }}
+        -n {{ k8s_namespace }}
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+      register: deployment_status
+      changed_when: false
+      failed_when: false
+
+    - name: Stop if deployment does not exist
+      fail:
+        msg: "Deployment {{ deployment_name }} does not exist. Rollback skipped."
+      when: deployment_status.rc != 0
 
 ###############################################################################
 # Display Rollout History
 ###############################################################################
 
-    - name: Show Rollout History
-
+    - name: Show rollout history
       command: >
         {{ kubectl_binary }}
         rollout history
         deployment/{{ deployment_name }}
-        -n {{ namespace }}
-
+        -n {{ k8s_namespace }}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
       register: rollout_history
-
-      ignore_errors: true
-      
       changed_when: false
+      failed_when: false
 
-    - name: Display Rollout History
-
+    - name: Display rollout history
       debug:
         var: rollout_history.stdout_lines
 
@@ -63,106 +88,105 @@
 # Rollback Deployment
 ###############################################################################
 
-    - name: Rollback Deployment
-
+    - name: Rollback deployment
       command: >
         {{ kubectl_binary }}
         rollout undo
         deployment/{{ deployment_name }}
-        -n {{ namespace }}
-
+        -n {{ k8s_namespace }}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
+      register: rollback_result
+      changed_when: rollback_result.rc == 0
+      failed_when: rollback_result.rc != 0
 
 ###############################################################################
 # Wait for Rollback
 ###############################################################################
 
-    - name: Wait for Rollback Completion
-
+    - name: Wait for rollback completion
       command: >
         {{ kubectl_binary }}
         rollout status
         deployment/{{ deployment_name }}
-        -n {{ namespace }}
+        -n {{ k8s_namespace }}
         --timeout={{ rollout_timeout }}
-
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
       changed_when: false
 
 ###############################################################################
 # Verify Deployment
 ###############################################################################
 
-    - name: Verify Deployment
-
+    - name: Verify deployment
       command: >
         {{ kubectl_binary }}
-        get deployment {{ deployment_name }}
-        -n {{ namespace }}
-
+        get deployment
+        {{ deployment_name }}
+        -n {{ k8s_namespace }}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
+      register: deployment_verify
       changed_when: false
 
 ###############################################################################
 # Verify Pods
 ###############################################################################
 
-    - name: Verify Running Pods
-
+    - name: Get running pods
       command: >
         {{ kubectl_binary }}
         get pods
-        -n {{ namespace }}
+        -n {{ k8s_namespace }}
         -o wide
-
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
       register: pods
-
       changed_when: false
 
 ###############################################################################
 # Display Current Image
 ###############################################################################
 
-    - name: Display Current Image
-
+    - name: Get current image
       command: >
         {{ kubectl_binary }}
-        get deployment {{ deployment_name }}
-        -n {{ namespace }}
-        -o jsonpath='{.spec.template.spec.containers[0].image}'
-
+        get deployment
+        {{ deployment_name }}
+        -n {{ k8s_namespace }}
+        -o jsonpath={.spec.template.spec.containers[0].image}
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
-
       register: current_image
-
       changed_when: false
 
 ###############################################################################
-# Display Running Pods
+# Display Information
 ###############################################################################
 
-    - name: Running Pods
+    - name: Deployment status
+      debug:
+        var: deployment_verify.stdout_lines
 
+    - name: Running pods
       debug:
         var: pods.stdout_lines
 
+    - name: Current image
+      debug:
+        msg: "Current Image : {{ current_image.stdout }}"
+
 ###############################################################################
-# Rollback Completed
+# Rollback Complete
 ###############################################################################
 
-    - name: Rollback Successful
-
+    - name: Rollback completed
       debug:
         msg:
+          - "========================================"
           - "Rollback Completed Successfully"
+          - "Deployment : {{ deployment_name }}"
+          - "Namespace  : {{ k8s_namespace }}"
           - "Current Image : {{ current_image.stdout }}"
-          - "Application Restored"
+          - "========================================"

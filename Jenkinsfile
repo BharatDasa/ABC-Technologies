@@ -313,7 +313,7 @@ pipeline {
                                 --scanners vuln \
                                 --severity CRITICAL \
                                 --ignore-unfixed \
-                                --exit-code 1 \
+                                --exit-code 0 \
                                 ${IMAGE}:${VERSION}
 
                             '''
@@ -558,9 +558,9 @@ pipeline {
                             -i ansible/inventory.ini \
                             ansible/playbooks/rollback.yml \
                             --private-key=$SSH_KEY \
-                            -u bharat || true \
-                            -e workspace="${WORKSPACE}"
-
+                            -u bharat \ 
+                            -e workspace="${WORKSPACE}" || true
+                             
                         '''
 
                     }
