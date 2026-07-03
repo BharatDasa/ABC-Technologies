@@ -69,6 +69,27 @@ pipeline {
     stages {
 
         /******************************************************
+         * Initialize Version
+         ******************************************************/
+
+        stage('Initialize Version') {
+
+            steps {
+
+                script {
+
+                    env.APP_VERSION = "1.0.${env.BUILD_NUMBER}"
+
+                    echo "BUILD_NUMBER       : ${env.BUILD_NUMBER}"
+                    echo "Application Version: ${env.APP_VERSION}"
+
+                }
+
+            }
+
+        }
+
+        /******************************************************
          * Clone Repository
          ******************************************************/
 
