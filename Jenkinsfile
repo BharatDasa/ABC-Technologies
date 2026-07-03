@@ -156,8 +156,6 @@ pipeline {
                         --context="$(pwd)" \
                         --destination=${IMAGE}:latest \
                         --destination=${IMAGE}:${VERSION} \
-                        --destination=${DOCKERHUB_IMAGE}:latest \
-                        --destination=${DOCKERHUB_IMAGE}:${VERSION} \
                         --insecure \
                         --skip-tls-verify
 
