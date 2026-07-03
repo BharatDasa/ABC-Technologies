@@ -5,6 +5,10 @@ metadata:
   name: abc-technologies-network-policy
   namespace: abc-technologies
 
+  labels:
+    app: abc-technologies
+    environment: production
+
 spec:
 
   podSelector:
@@ -21,30 +25,49 @@ spec:
 
   ingress:
 
+  #########################################################################
   # Allow communication between application pods
+  #########################################################################
+
   - from:
       - podSelector: {}
 
-  # Allow traffic from NGINX Ingress namespace
+  #########################################################################
+  # Allow traffic from Platform namespace (NGINX Ingress)
+  #########################################################################
+
   - from:
       - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: platform
 
-  # Allow traffic from Istio sidecars and gateways
+  #########################################################################
+  # Allow Istio Control Plane / Sidecars
+  #########################################################################
+
   - from:
       - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: istio-system
 
-  # Allow Prometheus scraping
+  #########################################################################
+  # Allow Prometheus Scraping
+  #########################################################################
+
   - from:
       - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: monitoring
+
     ports:
       - protocol: TCP
         port: 8080
+
+      - protocol: TCP
+        port: 15020
+
+      - protocol: TCP
+        port: 15090
 
 ###############################################################################
 # EGRESS
@@ -58,9 +81,11 @@ spec:
 
   - to:
       - namespaceSelector: {}
+
     ports:
       - protocol: UDP
         port: 53
+
       - protocol: TCP
         port: 53
 
@@ -81,25 +106,29 @@ spec:
         port: 443
 
   #########################################################################
-  # ISTIO CONTROL PLANE (VERY IMPORTANT)
+  # Istio Control Plane
   #########################################################################
 
   - to:
       - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: istio-system
+
     ports:
       - protocol: TCP
         port: 15010
+
       - protocol: TCP
         port: 15012
+
       - protocol: TCP
         port: 15014
+
       - protocol: TCP
         port: 15017
 
   #########################################################################
-  # Prometheus
+  # Monitoring Namespace
   #########################################################################
 
   - to:
