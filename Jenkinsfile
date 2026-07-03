@@ -169,7 +169,7 @@ pipeline {
             }
 
         }
-                /******************************************************
+        /******************************************************
          * Ansible Auto Fix
          ******************************************************/
 
@@ -194,8 +194,8 @@ pipeline {
                             -i ansible/inventory.ini \
                             ansible/playbooks/auto-fix.yml \
                             --private-key=$SSH_KEY \
-                            -u bharat
-
+                            -u bharat \
+                            -e workspace="${WORKSPACE}"
                         '''
 
                     }
@@ -239,7 +239,8 @@ pipeline {
                                     -i ansible/inventory.ini \
                                     ansible/playbooks/precheck.yml \
                                     --private-key=$SSH_KEY \
-                                    -u bharat
+                                    -u bharat \
+                                    -e workspace="${WORKSPACE}"
 
                                 '''
 
@@ -354,7 +355,7 @@ pipeline {
             }
 
         }
-                /******************************************************
+         /******************************************************
          * Deploy Application
          ******************************************************/
 
@@ -417,8 +418,8 @@ pipeline {
                             -i ansible/inventory.ini \
                             ansible/playbooks/healthcheck.yml \
                             --private-key=$SSH_KEY \
-                            -u bharat
-
+                            -u bharat \
+                            -e workspace="${WORKSPACE}"
                         '''
 
                     }
@@ -489,7 +490,8 @@ pipeline {
                             -i ansible/inventory.ini \
                             ansible/playbooks/cleanup.yml \
                             --private-key=$SSH_KEY \
-                            -u bharat
+                            -u bharat \
+                            -e workspace="${WORKSPACE}"
 
                         '''
 
@@ -556,7 +558,8 @@ pipeline {
                             -i ansible/inventory.ini \
                             ansible/playbooks/rollback.yml \
                             --private-key=$SSH_KEY \
-                            -u bharat || true
+                            -u bharat || true \
+                            -e workspace="${WORKSPACE}"
 
                         '''
 
