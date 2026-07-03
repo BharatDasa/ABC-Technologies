@@ -8,6 +8,8 @@ metadata:
   labels:
     release: monitoring
     app: abc-technologies
+    environment: production
+    managed-by: kubectl
 
 spec:
 
