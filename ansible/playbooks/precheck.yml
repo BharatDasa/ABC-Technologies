@@ -22,9 +22,9 @@
 
   pre_tasks:
 
-###############################################################################
-# Verify Jenkins Variables
-###############################################################################
+    ###########################################################################
+    # Verify Jenkins Workspace Variable
+    ###########################################################################
 
     - name: Verify workspace variable
       fail:
@@ -33,11 +33,11 @@
         - workspace is not defined
         - workspace | length == 0
 
-###############################################################################
-# Verify Kubernetes Manifests in Jenkins Workspace
-###############################################################################
+    ###########################################################################
+    # Verify Kubernetes Manifests Exist in Jenkins Workspace
+    ###########################################################################
 
-    - name: Verify Kubernetes manifest directory in Jenkins workspace
+    - name: Verify Kubernetes manifest directory
       delegate_to: localhost
       become: false
 
@@ -46,7 +46,7 @@
 
       register: manifests
 
-    - name: Fail if Kubernetes manifests are missing
+    - name: Fail if Kubernetes manifest directory is missing
       delegate_to: localhost
       become: false
 
@@ -55,9 +55,9 @@
 
       when: not manifests.stat.exists
 
-###############################################################################
-# Display Deployment Information
-###############################################################################
+    ###########################################################################
+    # Display Deployment Information
+    ###########################################################################
 
     - name: Display deployment information
       debug:
@@ -74,9 +74,9 @@
 
   tasks:
 
-###############################################################################
-# Verify kubectl
-###############################################################################
+    ###########################################################################
+    # Verify kubectl
+    ###########################################################################
 
     - name: Verify kubectl installation
       command: "{{ kubectl_binary }} version --client"
@@ -85,13 +85,12 @@
 
       changed_when: false
 
-###############################################################################
-# Verify Kubernetes Cluster
-###############################################################################
+    ###########################################################################
+    # Verify Cluster Connectivity
+    ###########################################################################
 
-    - name: Verify cluster connectivity
-      command: >
-        {{ kubectl_binary }} cluster-info
+    - name: Verify Kubernetes cluster connectivity
+      command: "{{ kubectl_binary }} cluster-info"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
@@ -100,13 +99,12 @@
 
       changed_when: false
 
-###############################################################################
-# Verify Kubernetes Nodes
-###############################################################################
+    ###########################################################################
+    # Verify Nodes
+    ###########################################################################
 
     - name: Verify Kubernetes nodes
-      command: >
-        {{ kubectl_binary }} get nodes
+      command: "{{ kubectl_binary }} get nodes"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
@@ -115,13 +113,12 @@
 
       changed_when: false
 
-###############################################################################
-# Verify Namespace
-###############################################################################
+    ###########################################################################
+    # Verify Namespace
+    ###########################################################################
 
     - name: Verify namespace
-      command: >
-        {{ kubectl_binary }} get namespace {{ k8s_namespace }}
+      command: "{{ kubectl_binary }} get namespace {{ k8s_namespace }}"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
@@ -130,9 +127,9 @@
 
       changed_when: false
 
-###############################################################################
-# Verify Docker Registry
-###############################################################################
+    ###########################################################################
+    # Verify Docker Registry
+    ###########################################################################
 
     - name: Verify Docker registry
       uri:
@@ -144,15 +141,26 @@
 
       register: registry_status
 
-###############################################################################
-# Verify Istio
-###############################################################################
+    ###########################################################################
+    # Verify StorageClass
+    ###########################################################################
+
+    - name: Verify StorageClass
+      command: "{{ kubectl_binary }} get storageclass {{ storage_class }}"
+
+      environment:
+        KUBECONFIG: "{{ kubeconfig }}"
+
+      register: storageclass_status
+
+      changed_when: false
+
+    ###########################################################################
+    # Verify Istio
+    ###########################################################################
 
     - name: Verify Istio
-      command: >
-        {{ kubectl_binary }}
-        get pods
-        -n {{ istio_namespace }}
+      command: "{{ kubectl_binary }} get pods -n {{ istio_namespace }}"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
@@ -165,15 +173,12 @@
 
       when: istio_enabled
 
-###############################################################################
-# Verify Monitoring
-###############################################################################
+    ###########################################################################
+    # Verify Monitoring
+    ###########################################################################
 
     - name: Verify Monitoring Stack
-      command: >
-        {{ kubectl_binary }}
-        get pods
-        -n {{ monitoring_namespace }}
+      command: "{{ kubectl_binary }} get pods -n {{ monitoring_namespace }}"
 
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
@@ -185,22 +190,6 @@
       failed_when: false
 
       when: monitoring_enabled
-
-###############################################################################
-# Verify StorageClass
-###############################################################################
-
-    - name: Verify StorageClass
-      command: >
-        {{ kubectl_binary }}
-        get storageclass {{ storage_class }}
-
-      environment:
-        KUBECONFIG: "{{ kubeconfig }}"
-
-      register: storageclass_status
-
-      changed_when: false
 
 ###############################################################################
 # Display Results
@@ -237,7 +226,7 @@
       when: monitoring_enabled
 
 ###############################################################################
-# Complete
+# Success
 ###############################################################################
 
     - name: Precheck passed
@@ -249,7 +238,7 @@
           - "Cluster Reachable"
           - "Namespace Verified"
           - "Docker Registry Reachable"
-          - "Manifest Directory Verified"
           - "StorageClass Verified"
+          - "Manifest Directory Verified"
           - "Environment Ready for Deployment"
           - "========================================"
