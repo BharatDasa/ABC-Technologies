@@ -116,25 +116,26 @@ pipeline {
 
                 container('maven') {
 
-                    sh '''
+                    sh """
 
                     echo "=============================================="
 
                     mvn clean deploy \
                         -U \
                         -DskipTests \
-                        -Drevision=1.0.${env.BUILD_NUMBER} \ 
-                        -Dchangelist=""
+                        -Drevision=1.0.${env.BUILD_NUMBER} \
+                        -Dchangelist=
 
                     echo "=============================================="
 
-                    '''
+                    """
 
                 }
 
             }
 
         }
+
 
         /******************************************************
          * Build Docker Image
