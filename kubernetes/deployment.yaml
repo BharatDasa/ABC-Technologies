@@ -8,6 +8,7 @@ metadata:
   labels:
     app: abc-technologies
     environment: production
+    managed-by: kubectl
 
 spec:
 
@@ -16,19 +17,14 @@ spec:
   revisionHistoryLimit: 10
 
   strategy:
-
     type: RollingUpdate
 
     rollingUpdate:
-
       maxUnavailable: 1
-
       maxSurge: 1
 
   selector:
-
     matchLabels:
-
       app: abc-technologies
 
   template:
@@ -36,9 +32,9 @@ spec:
     metadata:
 
       labels:
-
         app: abc-technologies
-
+        environment: production
+        managed-by: kubectl
         version: v1
 
     spec:
@@ -50,11 +46,10 @@ spec:
       serviceAccountName: abc-technologies-sa
 
 ###############################################################################
-# Schedule Application Pods on Application Worker
+# Schedule Application Pods
 ###############################################################################
 
       nodeSelector:
-
         role: app
 
 ###############################################################################
@@ -67,23 +62,16 @@ spec:
 
           preferredDuringSchedulingIgnoredDuringExecution:
 
-          - weight: 100
+            - weight: 100
 
-            podAffinityTerm:
+              podAffinityTerm:
 
-              topologyKey: kubernetes.io/hostname
+                topologyKey: kubernetes.io/hostname
 
-              labelSelector:
+                labelSelector:
 
-                matchExpressions:
-
-                - key: app
-
-                  operator: In
-
-                  values:
-
-                  - abc-technologies
+                  matchLabels:
+                    app: abc-technologies
 
 ###############################################################################
 # Security Context
@@ -95,7 +83,15 @@ spec:
 
         runAsUser: 1000
 
+        runAsGroup: 1000
+
         fsGroup: 1000
+
+###############################################################################
+# Termination
+###############################################################################
+
+      terminationGracePeriodSeconds: 30
 
 ###############################################################################
 # Container
@@ -103,124 +99,130 @@ spec:
 
       containers:
 
-      - name: abc-technologies
+        - name: abc-technologies
 
-        image: IMAGE_PLACEHOLDER
+          image: IMAGE_PLACEHOLDER
 
-        imagePullPolicy: Always
+          imagePullPolicy: Always
 
 ###############################################################################
-# Port
+# Container Port
 ###############################################################################
 
-        ports:
+          ports:
 
-        - containerPort: 8080
+            - name: http
+
+              containerPort: 8080
+
+              protocol: TCP
 
 ###############################################################################
 # ConfigMap
 ###############################################################################
 
-        envFrom:
+          envFrom:
 
-        - configMapRef:
+            - configMapRef:
 
-            name: abc-technologies-config
+                name: abc-technologies-config
 
 ###############################################################################
 # Resources
 ###############################################################################
 
-        resources:
+          resources:
 
-          requests:
+            requests:
 
-            cpu: "250m"
+              cpu: "250m"
 
-            memory: "512Mi"
+              memory: "512Mi"
 
-          limits:
+            limits:
 
-            cpu: "1000m"
+              cpu: "1000m"
 
-            memory: "1024Mi"
+              memory: "1024Mi"
 
 ###############################################################################
 # Liveness Probe
 ###############################################################################
 
-        livenessProbe:
+          livenessProbe:
 
-          httpGet:
+            httpGet:
 
-            path: /
+              path: /
 
-            port: 8080
+              port: 8080
 
-          initialDelaySeconds: 30
+            initialDelaySeconds: 30
 
-          periodSeconds: 10
+            periodSeconds: 10
 
-          timeoutSeconds: 5
+            timeoutSeconds: 5
 
-          failureThreshold: 3
+            successThreshold: 1
+
+            failureThreshold: 3
 
 ###############################################################################
 # Readiness Probe
 ###############################################################################
 
-        readinessProbe:
+          readinessProbe:
 
-          httpGet:
+            httpGet:
 
-            path: /
+              path: /
 
-            port: 8080
+              port: 8080
 
-          initialDelaySeconds: 15
+            initialDelaySeconds: 15
 
-          periodSeconds: 5
+            periodSeconds: 5
 
-          timeoutSeconds: 5
+            timeoutSeconds: 5
 
-          failureThreshold: 3
+            successThreshold: 1
+
+            failureThreshold: 3
 
 ###############################################################################
 # Startup Probe
 ###############################################################################
 
-        startupProbe:
+          startupProbe:
 
-          httpGet:
+            httpGet:
 
-            path: /
+              path: /
 
-            port: 8080
+              port: 8080
 
-          failureThreshold: 30
+            periodSeconds: 10
 
-          periodSeconds: 10
+            timeoutSeconds: 5
+
+            successThreshold: 1
+
+            failureThreshold: 30
 
 ###############################################################################
 # Graceful Shutdown
 ###############################################################################
 
-        lifecycle:
+          lifecycle:
 
-          preStop:
+            preStop:
 
-            exec:
+              exec:
 
-              command:
+                command:
 
-              - /bin/sh
+                  - /bin/sh
 
-              - -c
+                  - -c
 
-              - sleep 15
-
-###############################################################################
-# Termination
-###############################################################################
-
-      terminationGracePeriodSeconds: 30
+                  - sleep 15

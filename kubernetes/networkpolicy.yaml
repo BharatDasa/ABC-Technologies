@@ -8,7 +8,6 @@ metadata:
 spec:
 
   podSelector:
-
     matchLabels:
       app: abc-technologies
 
@@ -22,47 +21,29 @@ spec:
 
   ingress:
 
-  #
-  # Allow traffic from pods in the same namespace
-  #
+  # Allow communication between application pods
   - from:
-
       - podSelector: {}
 
-  #
-  # Allow traffic from NGINX Ingress Controller
-  #
+  # Allow traffic from NGINX Ingress namespace
   - from:
-
       - namespaceSelector:
-
           matchLabels:
             kubernetes.io/metadata.name: platform
 
-  #
-  # Allow traffic from Istio
-  #
+  # Allow traffic from Istio sidecars and gateways
   - from:
-
       - namespaceSelector:
-
           matchLabels:
             kubernetes.io/metadata.name: istio-system
 
-  #
   # Allow Prometheus scraping
-  #
   - from:
-
       - namespaceSelector:
-
           matchLabels:
             kubernetes.io/metadata.name: monitoring
-
     ports:
-
       - protocol: TCP
-
         port: 8080
 
 ###############################################################################
@@ -71,47 +52,65 @@ spec:
 
   egress:
 
-  #
-  # Allow DNS
-  #
+  #########################################################################
+  # DNS
+  #########################################################################
+
   - to:
-
       - namespaceSelector: {}
-
     ports:
-
       - protocol: UDP
-
+        port: 53
+      - protocol: TCP
         port: 53
 
-      - protocol: TCP
+  #########################################################################
+  # HTTP
+  #########################################################################
 
-        port: 53
-
-  #
-  # Allow HTTPS
-  #
   - ports:
-
       - protocol: TCP
-
-        port: 443
-
-  #
-  # Allow HTTP
-  #
-  - ports:
-
-      - protocol: TCP
-
         port: 80
 
-  #
-  # Allow Prometheus Metrics
-  #
+  #########################################################################
+  # HTTPS
+  #########################################################################
+
+  - ports:
+      - protocol: TCP
+        port: 443
+
+  #########################################################################
+  # ISTIO CONTROL PLANE (VERY IMPORTANT)
+  #########################################################################
+
   - to:
-
       - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: istio-system
+    ports:
+      - protocol: TCP
+        port: 15010
+      - protocol: TCP
+        port: 15012
+      - protocol: TCP
+        port: 15014
+      - protocol: TCP
+        port: 15017
 
+  #########################################################################
+  # Prometheus
+  #########################################################################
+
+  - to:
+      - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: monitoring
+
+  #########################################################################
+  # Kubernetes API Server
+  #########################################################################
+
+  - ports:
+      - protocol: TCP
+        port: 6443

@@ -8,20 +8,30 @@ metadata:
   labels:
     app: abc-technologies
     environment: production
+    managed-by: kubectl
 
 spec:
 
+###############################################################################
+# Target Deployment
+###############################################################################
+
   scaleTargetRef:
-
     apiVersion: apps/v1
-
     kind: Deployment
-
     name: abc-technologies
+
+###############################################################################
+# Replica Limits
+###############################################################################
 
   minReplicas: 2
 
   maxReplicas: 10
+
+###############################################################################
+# Metrics
+###############################################################################
 
   metrics:
 
@@ -49,11 +59,21 @@ spec:
 
           averageUtilization: 80
 
+###############################################################################
+# Scaling Behaviour
+###############################################################################
+
   behavior:
+
+###############################################################################
+# Scale Up
+###############################################################################
 
     scaleUp:
 
-      stabilizationWindowSeconds: 0
+      stabilizationWindowSeconds: 30
+
+      selectPolicy: Max
 
       policies:
 
@@ -69,11 +89,15 @@ spec:
 
           periodSeconds: 60
 
-      selectPolicy: Max
+###############################################################################
+# Scale Down
+###############################################################################
 
     scaleDown:
 
       stabilizationWindowSeconds: 300
+
+      selectPolicy: Max
 
       policies:
 
@@ -83,4 +107,8 @@ spec:
 
           periodSeconds: 60
 
-      selectPolicy: Max
+        - type: Pods
+
+          value: 1
+
+          periodSeconds: 60
