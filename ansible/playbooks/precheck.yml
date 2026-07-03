@@ -16,6 +16,10 @@
   vars_files:
     - ../group_vars/all.yml
 
+###############################################################################
+# Pre Tasks
+###############################################################################
+
   pre_tasks:
 
 ###############################################################################
@@ -30,6 +34,28 @@
         - workspace | length == 0
 
 ###############################################################################
+# Verify Kubernetes Manifests in Jenkins Workspace
+###############################################################################
+
+    - name: Verify Kubernetes manifest directory in Jenkins workspace
+      delegate_to: localhost
+      become: false
+
+      stat:
+        path: "{{ workspace }}/kubernetes"
+
+      register: manifests
+
+    - name: Fail if Kubernetes manifests are missing
+      delegate_to: localhost
+      become: false
+
+      fail:
+        msg: "Directory {{ workspace }}/kubernetes does not exist."
+
+      when: not manifests.stat.exists
+
+###############################################################################
 # Display Deployment Information
 ###############################################################################
 
@@ -42,6 +68,10 @@
           - "Environment : {{ deployment_environment }}"
           - "Workspace   : {{ workspace }}"
 
+###############################################################################
+# Tasks
+###############################################################################
+
   tasks:
 
 ###############################################################################
@@ -50,7 +80,9 @@
 
     - name: Verify kubectl installation
       command: "{{ kubectl_binary }} version --client"
+
       register: kubectl_check
+
       changed_when: false
 
 ###############################################################################
@@ -60,9 +92,12 @@
     - name: Verify cluster connectivity
       command: >
         {{ kubectl_binary }} cluster-info
+
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
+
       register: cluster
+
       changed_when: false
 
 ###############################################################################
@@ -72,9 +107,12 @@
     - name: Verify Kubernetes nodes
       command: >
         {{ kubectl_binary }} get nodes
+
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
+
       register: nodes
+
       changed_when: false
 
 ###############################################################################
@@ -84,9 +122,12 @@
     - name: Verify namespace
       command: >
         {{ kubectl_binary }} get namespace {{ k8s_namespace }}
+
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
+
       register: namespace_status
+
       changed_when: false
 
 ###############################################################################
@@ -100,21 +141,8 @@
         status_code:
           - 200
           - 401
+
       register: registry_status
-
-###############################################################################
-# Verify Manifest Directory
-###############################################################################
-
-    - name: Verify manifest directory
-      stat:
-        path: "{{ workspace }}/kubernetes"
-      register: manifests
-
-    - name: Fail if manifest directory is missing
-      fail:
-        msg: "Kubernetes manifest directory not found inside Jenkins workspace."
-      when: not manifests.stat.exists
 
 ###############################################################################
 # Verify Istio
@@ -125,15 +153,20 @@
         {{ kubectl_binary }}
         get pods
         -n {{ istio_namespace }}
+
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
+
       register: istio_status
+
       changed_when: false
+
       failed_when: false
+
       when: istio_enabled
 
 ###############################################################################
-# Verify Monitoring Stack
+# Verify Monitoring
 ###############################################################################
 
     - name: Verify Monitoring Stack
@@ -141,11 +174,16 @@
         {{ kubectl_binary }}
         get pods
         -n {{ monitoring_namespace }}
+
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
+
       register: monitoring_status
+
       changed_when: false
+
       failed_when: false
+
       when: monitoring_enabled
 
 ###############################################################################
@@ -156,13 +194,16 @@
       command: >
         {{ kubectl_binary }}
         get storageclass {{ storage_class }}
+
       environment:
         KUBECONFIG: "{{ kubeconfig }}"
+
       register: storageclass_status
+
       changed_when: false
 
 ###############################################################################
-# Display Cluster Information
+# Display Results
 ###############################################################################
 
     - name: Display kubectl version
@@ -196,7 +237,7 @@
       when: monitoring_enabled
 
 ###############################################################################
-# Precheck Complete
+# Complete
 ###############################################################################
 
     - name: Precheck passed
@@ -208,7 +249,7 @@
           - "Cluster Reachable"
           - "Namespace Verified"
           - "Docker Registry Reachable"
-          - "StorageClass Verified"
           - "Manifest Directory Verified"
+          - "StorageClass Verified"
           - "Environment Ready for Deployment"
           - "========================================"
