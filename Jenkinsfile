@@ -115,17 +115,28 @@ pipeline {
 
             steps {
 
-                sh '''
+                container('ansible') {
 
-                echo "=========================================="
-                echo "Printing Inventory File"
-                echo "=========================================="
+                    sh '''
 
-                cat ansible/inventory.ini
+                    echo "=========================================="
+                    echo "Inventory File"
+                    echo "=========================================="
 
-                echo "=========================================="
+                    cat ansible/inventory.ini
 
-                '''
+                    echo ""
+                    echo "=========================================="
+                    echo "Ansible Inventory Validation"
+                    echo "=========================================="
+
+                    ansible-inventory \
+                        -i ansible/inventory.ini \
+                        --list
+
+                    '''
+
+                }
 
             }
 
